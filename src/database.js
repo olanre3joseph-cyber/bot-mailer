@@ -14,6 +14,7 @@ function defaultData() {
     recruits: {},
     mailLog: [],
     knownNationIds: {},
+    knownDepartureIds: {},
     templates: {},
     blacklist: {},
     personalApiKeys: {},
@@ -132,6 +133,31 @@ function markNationKnown(nationId) {
   const data = loadData();
   data.knownNationIds[String(nationId)] = new Date().toISOString();
   saveData(data);
+}
+
+// ---------- Known departure IDs (for the alliance-exit recruiting scanner) ----------
+// Separate tracking set from knownNationIds above - this one tracks established,
+// currently-unaligned nations so we can detect when a NEW one shows up (meaning
+// they likely just left an alliance, since we'd already know about them otherwise
+// if they'd been unaligned all along).
+
+function isKnownDeparture(nationId) {
+  const data = loadData();
+  return Boolean(data.knownDepartureIds[String(nationId)]);
+}
+
+function markDepartureKnown(nationId) {
+  const data = loadData();
+  data.knownDepartureIds[String(nationId)] = new Date().toISOString();
+  saveData(data);
+}
+
+function isDepartureBackfillDone() {
+  return Boolean(getSetting('departureBackfillDone'));
+}
+
+function setDepartureBackfillDone() {
+  setSetting('departureBackfillDone', true);
 }
 
 // ---------- Recruitment templates ----------
@@ -360,6 +386,10 @@ module.exports = {
   getMailLog,
   isKnownNation,
   markNationKnown,
+  isKnownDeparture,
+  markDepartureKnown,
+  isDepartureBackfillDone,
+  setDepartureBackfillDone,
   addTemplate,
   getTemplate,
   getAllTemplates,

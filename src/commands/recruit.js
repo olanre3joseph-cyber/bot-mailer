@@ -69,7 +69,8 @@ module.exports = {
                   { name: 'initial (first contact - new nations/bulk recruiting)', value: 'initial' },
                   { name: 'followup1 (sent ~3 days after first contact)', value: 'followup1' },
                   { name: 'followup2 (sent ~7 days after first contact)', value: 'followup2' },
-                  { name: 'followup3 (final follow-up, ~14 days)', value: 'followup3' }
+                  { name: 'followup3 (final follow-up, ~14 days)', value: 'followup3' },
+                  { name: 'departure (sent to nations who left an alliance)', value: 'departure' }
                 )
             )
         )
@@ -196,6 +197,8 @@ module.exports = {
         const usageHint =
           type === 'initial'
             ? 'It will now be included in the random rotation for new-nation recruiting and bulk sends.'
+            : type === 'departure'
+            ? 'It will be sent automatically to nations detected as having recently left an alliance.'
             : `It will be sent automatically as the "${type}" follow-up to recruits who haven't moved past the "New" stage.`;
         return interaction.reply({
           content: `✅ Template "${id}" created (type: ${type}). ${usageHint}`,

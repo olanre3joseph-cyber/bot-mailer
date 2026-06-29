@@ -489,3 +489,38 @@ To remove the restriction later:
 - **Where keys are stored:** personal API keys are saved in the bot's local data file (`data/bot.json`), in plain text - not specially encrypted. This file is already excluded from your GitHub repo (so it never becomes public), but anyone with direct access to your Railway hosting dashboard could technically open that file and read the keys inside it. This is the same level of protection your bot's other secrets (like your own `.env`) already get - not bank-grade encryption, just "not exposed publicly." If a staff member isn't comfortable with that level of protection, they should not register their key, and can keep using the shared one instead.
 - **Key validation is real but limited.** When someone runs `/apikey set`, the bot actually tests the key against PnW's API before saving it - so typos and dead keys get caught immediately. However, this test only confirms the key can read data; it can't 100% guarantee the key is allowed to send mail, since PnW's send-message system is a separate endpoint with its own rules. If sending fails despite a "valid" key, that's something to take up with PnW directly, not a bug in this check.
 - **If a staff member leaves your alliance or shouldn't have access anymore,** an admin can remove their key directly with `/apikey remove-for user:@someone` - no need to wait for them to do it themselves.
+
+---
+
+# PHASE 9 — Alliance-Departure Recruiting (with honest limitations)
+
+This adds Module 3 from the original spec: automatically recruiting nations that have left an alliance, not just brand-new signups.
+
+### Read this before turning it on - how it actually works
+
+PnW's API has **no field anywhere that records alliance history** - there's no way to ask "who left an alliance yesterday." So this works by inference instead: once a day, the bot checks every established (3+ days old), unaligned nation, and compares that list to what it saw the day before. Anyone newly appearing on the unaligned list is assumed to have just left (or been kicked from, or had disbanded) an alliance - that's the only way an established nation becomes unaligned.
+
+**What this means in practice:**
+- It cannot tell you *why* someone left
+- It cannot catch someone who left and immediately joined a different alliance before the next daily check (they'd never appear as unaligned in our data at all)
+- **The very first time this scanner ever runs, it does nothing but quietly record who's currently unaligned** - no mail gets sent on that first run, because every existing unaligned nation would otherwise look like a "new departure." Only runs after that first one can detect anything real.
+
+If this kind of inference-based guessing isn't precise enough for your alliance's standards, this feature is easy to leave permanently off (it respects the same `autoRecruitEnabled` toggle as new-nation recruiting).
+
+### Setup steps
+
+1. Unzip the new project files, add the new file `src/scheduler/allianceExitScanner.js`
+2. `npm install` (no new packages)
+3. `node src/deployCommands.js` (registers the new `departure` template type option)
+4. `node src/index.js`
+
+### How to use it
+
+It runs automatically once a day (10:00 AM server time), using your existing `autoRecruitEnabled` setting - if that's already on from Phase 2, this starts working immediately (after its one silent backfill run). No new command to turn it on separately.
+
+**Optional: write a departure-specific message** (otherwise it just reuses your `initial` template pool):
+```
+/recruit template create id:welcome-back type:departure subject:"Looking for a new home?" body:"Hi {leader_name}, we noticed {nation_name} is currently unaligned - would Union of Nations be a good fit for you?"
+```
+
+Mail sent this way is logged exactly like everything else - same threads, same `/mail history`, same cooldown and blacklist protection, same attribution tracking for `/recruit attribution`.
