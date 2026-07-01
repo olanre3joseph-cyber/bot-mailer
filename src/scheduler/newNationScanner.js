@@ -27,7 +27,9 @@ function fillTemplate(text, nation) {
   // Supports both our own placeholders AND PnW's native ones
   return text
     .replaceAll('{nation_name}', nation.nation_name)
-    .replaceAll('{leader_name}', nation.leader_name);
+    .replaceAll('{leader_name}', nation.leader_name)
+    .replaceAll('{nation}', nation.nation_name)
+    .replaceAll('{leader}', nation.leader_name);
 }
 
 async function runScan(client) {
