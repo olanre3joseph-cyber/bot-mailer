@@ -9,6 +9,14 @@ const { resolveNation } = require('../utils/resolveNation');
 const { truncateForDiscord } = require('../utils/discordText');
 const { canSendRecruitmentMail } = require('../utils/permissions');
 
+function fillTemplate(text, nation) {
+  return text
+    .replaceAll('{nation_name}', nation.nation_name)
+    .replaceAll('{leader_name}', nation.leader_name)
+    .replaceAll('{nation}', nation.nation_name)
+    .replaceAll('{leader}', nation.leader_name);
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('mail')
@@ -56,8 +64,6 @@ module.exports = {
       await interaction.deferReply({ flags: 64 });
 
       const nationInput = interaction.options.getString('nation');
-      const subject = interaction.options.getString('subject');
-      const message = interaction.options.getString('message');
 
       let nation;
       try {
@@ -73,6 +79,9 @@ module.exports = {
       }
 
       const nationId = nation.id;
+
+      const subject = fillTemplate(interaction.options.getString('subject'), nation);
+      const message = fillTemplate(interaction.options.getString('message'), nation);
 
       if (db.isBlacklisted(nationId)) {
         const entry = db.getBlacklistEntry(nationId);
