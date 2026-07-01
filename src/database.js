@@ -374,6 +374,19 @@ function getRecruiterRoleId() {
   return getSetting('recruiterRoleId') || null;
 }
 
+function setMailLogChannelId(channelId) {
+  setSetting('mailLogChannelId', channelId);
+}
+
+/**
+ * Returns the mail log channel ID - database setting takes priority over
+ * the .env value, so /config mail-log-channel overrides the original setup
+ * without requiring a restart or .env edit.
+ */
+function getMailLogChannelId() {
+  return getSetting('mailLogChannelId') || process.env.MAIL_LOG_CHANNEL_ID || null;
+}
+
 module.exports = {
   getRecruit,
   getAllRecruits,
@@ -406,6 +419,8 @@ module.exports = {
   hasPersonalApiKey,
   setRecruiterRoleId,
   getRecruiterRoleId,
+  setMailLogChannelId,
+  getMailLogChannelId,
   addToBlacklist,
   removeFromBlacklist,
   isBlacklisted,
