@@ -21,9 +21,9 @@ function slugify(text) {
 async function getOrCreateRecruitThread(client, nationId, nationName) {
   const recruit = db.getRecruit(nationId);
 
-  const logChannelId = process.env.MAIL_LOG_CHANNEL_ID;
+  const logChannelId = db.getMailLogChannelId();
   if (!logChannelId) {
-    throw new Error('MAIL_LOG_CHANNEL_ID is not set in your .env file.');
+    throw new Error('Mail log channel is not configured. Use /config mail-log-channel set or set MAIL_LOG_CHANNEL_ID in your .env file.');
   }
 
   const logChannel = await client.channels.fetch(logChannelId);
