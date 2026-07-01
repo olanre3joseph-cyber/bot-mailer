@@ -84,6 +84,33 @@ module.exports = {
         )
         .addSubcommand((sub) =>
           sub
+            .setName('edit')
+            .setDescription('Edit an existing template (only fill in the fields you want to change)')
+            .addStringOption((opt) =>
+              opt.setName('id').setDescription('Template ID to edit').setRequired(true)
+            )
+            .addStringOption((opt) =>
+              opt.setName('subject').setDescription('New subject line (leave blank to keep current)').setRequired(false)
+            )
+            .addStringOption((opt) =>
+              opt.setName('body').setDescription('New message body (leave blank to keep current)').setRequired(false)
+            )
+            .addStringOption((opt) =>
+              opt
+                .setName('type')
+                .setDescription('Change the template type (leave blank to keep current)')
+                .setRequired(false)
+                .addChoices(
+                  { name: 'initial (first contact)', value: 'initial' },
+                  { name: 'followup1 (~3 days)', value: 'followup1' },
+                  { name: 'followup2 (~7 days)', value: 'followup2' },
+                  { name: 'followup3 (final, ~14 days)', value: 'followup3' },
+                  { name: 'departure (left an alliance)', value: 'departure' }
+                )
+            )
+        )
+        .addSubcommand((sub) =>
+          sub
             .setName('delete')
             .setDescription('Delete a template')
             .addStringOption((opt) =>
@@ -233,6 +260,54 @@ module.exports = {
 
 
         return interaction.reply({ embeds: [embed], flags: 64 });
+      }
+
+      if (sub === 'edit') {
+        const id = interaction.options.getString('id').toLowerCase().replace(/\s+/g, '-');
+        const existing = db.getTemplate(id);
+
+        if (!existing) {
+          return interaction.reply({
+            content: `❌ No template found with ID "${id}". Use \`/recruit template list\` to see all template IDs.`,
+            flags: 64,
+          });
+        }
+
+        // Only update the fields the user actually provided - leave everything
+        // else exactly as it was. This way staff can fix just the subject line
+        // without having to retype the entire body, for example.
+        const newSubject = interaction.options.getString('subject');
+        const newBody = interaction.options.getString('body');
+        const newType = interaction.options.getString('type');
+
+        if (!newSubject && !newBody && !newType) {
+          return interaction.reply({
+            content: `You didn't provide anything to change. Supply at least one of: \`subject\`, \`body\`, or \`type\`.`,
+            flags: 64,
+          });
+        }
+
+        const updated = {
+          ...existing,
+          subject: newSubject || existing.subject,
+          body: newBody || existing.body,
+          type: newType || existing.type || 'initial',
+        };
+
+        db.addTemplate(id, updated); // addTemplate overwrites if the ID already exists
+
+        const changes = [
+          newSubject ? `subject → "${newSubject}"` : null,
+          newBody ? `body updated` : null,
+          newType ? `type → "${newType}"` : null,
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+        return interaction.reply({
+          content: `✅ Template "${id}" updated (${changes}).`,
+          flags: 64,
+        });
       }
 
       if (sub === 'delete') {
