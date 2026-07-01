@@ -65,7 +65,7 @@ async function runFollowUpScan(client) {
   // from our tracking perspective, so we leave them alone.
   const candidates = allRecruits.filter((r) => r.stage === 'New' && !db.isBlacklisted(r.nation_id));
 
-  const logChannelId = process.env.MAIL_LOG_CHANNEL_ID;
+  const logChannelId = db.getMailLogChannelId();
   const logChannel = logChannelId ? await client.channels.fetch(logChannelId).catch(() => null) : null;
 
   let sentCount = 0;
