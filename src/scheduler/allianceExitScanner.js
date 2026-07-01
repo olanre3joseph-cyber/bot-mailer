@@ -84,7 +84,7 @@ async function runAllianceExitScan(client) {
   if (newlyUnaligned.length === 0) return;
 
   const autoEnabled = Boolean(db.getSetting('autoRecruitEnabled'));
-  const logChannelId = process.env.MAIL_LOG_CHANNEL_ID;
+  const logChannelId = db.getMailLogChannelId();
   const logChannel = logChannelId ? await client.channels.fetch(logChannelId).catch(() => null) : null;
 
   let sentCount = 0;
