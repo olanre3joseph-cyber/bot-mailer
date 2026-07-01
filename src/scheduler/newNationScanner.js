@@ -50,7 +50,7 @@ async function runScan(client) {
     return; // nothing new, nothing to do
   }
 
-  const logChannelId = process.env.MAIL_LOG_CHANNEL_ID;
+  const logChannelId = db.getMailLogChannelId();
   const logChannel = logChannelId ? await client.channels.fetch(logChannelId).catch(() => null) : null;
 
   let sentCount = 0;
