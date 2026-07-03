@@ -1,42 +1,71 @@
 // /help
-// Lists every command the bot currently has, built automatically from the
-// loaded command files. You never need to edit this file when new commands
-// are added in later phases - it reads the live command list at the moment
-// someone runs /help.
-//
-// Discord caps a single embed field's value at 1024 characters. Commands
-// with a lot of subcommands (like /recruit) can easily produce more text
-// than that, so this file splits long command descriptions across multiple
-// fields automatically, instead of crashing when a command grows too big.
+// Shows a categorised, button-based help menu similar to modern Discord bots.
+// Clicking a category button shows just that category's commands.
+// Self-updating: the command detail text is still generated live from the
+// actual loaded commands, so it never goes stale when new commands are added.
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+} = require('discord.js');
 
 const FIELD_VALUE_LIMIT = 1024;
 
-/**
- * Turns a single slash command's data into an array of text lines -
- * one line per usable subcommand (or one line total for a simple command
- * with no subcommands).
- */
+// ---------- Category definitions ----------
+// Each category has a label, emoji, color, and which command names belong to it.
+const CATEGORIES = [
+  {
+    id: 'mail',
+    label: 'Mail',
+    emoji: '📨',
+    color: 0x3498db,
+    commands: ['mail', 'reply'],
+    description: 'Send and track in-game mail with nations',
+  },
+  {
+    id: 'recruitment',
+    label: 'Recruitment',
+    emoji: '🎯',
+    color: 0xf1c40f,
+    commands: ['recruit', 'blacklist'],
+    description: 'Recruitment automation, templates, pipeline and CRM',
+  },
+  {
+    id: 'communications',
+    label: 'Communications',
+    emoji: '📢',
+    color: 0x2ecc71,
+    commands: ['dm', 'announce', 'cancel'],
+    description: 'Discord DMs and channel announcements',
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    emoji: '⚙️',
+    color: 0x9b59b6,
+    commands: ['config', 'apikey'],
+    description: 'Bot configuration and personal API key management',
+  },
+];
+
+// ---------- Helpers ----------
+
 function describeCommandLines(command) {
   const json = command.data.toJSON();
   const lines = [];
-
   const subcommands = [];
   const groups = [];
 
   for (const opt of json.options || []) {
-    if (opt.type === 1) {
-      // SUB_COMMAND
-      subcommands.push(opt);
-    } else if (opt.type === 2) {
-      // SUB_COMMAND_GROUP
-      groups.push(opt);
-    }
+    if (opt.type === 1) subcommands.push(opt);
+    else if (opt.type === 2) groups.push(opt);
   }
 
   if (subcommands.length === 0 && groups.length === 0) {
-    // Simple command with no subcommands - just show its own options.
     const optionList = (json.options || [])
       .map((o) => `${o.required ? '' : '[optional] '}${o.name}`)
       .join(', ');
@@ -56,30 +85,19 @@ function describeCommandLines(command) {
       const optionList = (sub.options || [])
         .map((o) => `${o.required ? '' : '[optional] '}${o.name}`)
         .join(' ');
-      lines.push(
-        `\`/${json.name} ${group.name} ${sub.name}${optionList ? ' ' + optionList : ''}\` — ${sub.description}`
-      );
+      lines.push(`\`/${json.name} ${group.name} ${sub.name}${optionList ? ' ' + optionList : ''}\` — ${sub.description}`);
     }
   }
 
   return lines;
 }
 
-/**
- * Packs an array of text lines into as few chunks as possible, where each
- * chunk stays under Discord's 1024-character field limit. A single line
- * that's somehow still too long on its own gets hard-truncated as a last
- * resort, so this can never throw no matter what gets added in the future.
- */
 function packLinesIntoChunks(lines, limit = FIELD_VALUE_LIMIT) {
   const chunks = [];
   let current = '';
 
   for (let line of lines) {
-    if (line.length > limit) {
-      line = line.slice(0, limit - 3) + '...';
-    }
-
+    if (line.length > limit) line = line.slice(0, limit - 3) + '...';
     const candidate = current ? `${current}\n${line}` : line;
     if (candidate.length > limit) {
       if (current) chunks.push(current);
@@ -93,33 +111,112 @@ function packLinesIntoChunks(lines, limit = FIELD_VALUE_LIMIT) {
   return chunks;
 }
 
+function buildCategoryEmbed(category, allCommands) {
+  const embed = new EmbedBuilder()
+    .setTitle(`${category.emoji} ${category.label} Commands`)
+    .setDescription(category.description)
+    .setColor(category.color);
+
+  for (const cmdName of category.commands) {
+    const command = allCommands.get(cmdName);
+    if (!command) continue;
+
+    const lines = describeCommandLines(command);
+    const chunks = packLinesIntoChunks(lines);
+
+    chunks.forEach((chunk, i) => {
+      embed.addFields({
+        name: i === 0 ? `/${command.data.name}` : `/${command.data.name} (cont'd)`,
+        value: chunk,
+      });
+    });
+  }
+
+  return embed;
+}
+
+function buildHomeEmbed() {
+  return new EmbedBuilder()
+    .setTitle('📖  TUN PnW Mailing Bot — Help')
+    .setDescription(
+      'Click a category button below to see its commands.\n\n' +
+        CATEGORIES.map((c) => `${c.emoji} **${c.label}** — ${c.description}`).join('\n')
+    )
+    .setColor(0x3498db)
+    .setFooter({ text: 'Click a category button to see its commands' });
+}
+
+function buildButtons(activeCategoryId = null) {
+  const row = new ActionRowBuilder();
+
+  for (const cat of CATEGORIES) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`help_cat_${cat.id}`)
+        .setLabel(cat.label)
+        .setEmoji(cat.emoji)
+        .setStyle(cat.id === activeCategoryId ? ButtonStyle.Primary : ButtonStyle.Secondary)
+    );
+  }
+
+  return row;
+}
+
+// ---------- Command ----------
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
     .setDescription('Show all available bot commands'),
 
   async execute(interaction) {
-    const commands = [...interaction.client.commands.values()].sort((a, b) =>
-      a.data.name.localeCompare(b.data.name)
-    );
+    const allCommands = interaction.client.commands;
 
-    const embed = new EmbedBuilder()
-      .setTitle('📖 PnW Recruitment Bot — Commands')
-      .setColor(0x3498db)
-      .setDescription('This list always reflects exactly what the bot can currently do.');
+    const homeEmbed = buildHomeEmbed();
+    const row = buildButtons();
 
-    for (const command of commands) {
-      const lines = describeCommandLines(command);
-      const chunks = packLinesIntoChunks(lines);
+    const response = await interaction.reply({
+      embeds: [homeEmbed],
+      components: [row],
+      flags: 64,
+    });
 
-      chunks.forEach((chunk, i) => {
-        embed.addFields({
-          name: i === 0 ? `/${command.data.name}` : `/${command.data.name} (cont'd)`,
-          value: chunk,
-        });
+    // Listen for button clicks from the same user for 5 minutes
+    const collector = response.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      filter: (i) => i.user.id === interaction.user.id,
+      time: 5 * 60 * 1000,
+    });
+
+    collector.on('collect', async (btnInteraction) => {
+      const catId = btnInteraction.customId.replace('help_cat_', '');
+      const category = CATEGORIES.find((c) => c.id === catId);
+
+      if (!category) return;
+
+      const catEmbed = buildCategoryEmbed(category, allCommands);
+      const updatedRow = buildButtons(catId);
+
+      await btnInteraction.update({
+        embeds: [catEmbed],
+        components: [updatedRow],
       });
-    }
+    });
 
-    return interaction.reply({ embeds: [embed], flags: 64 });
+    collector.on('end', async () => {
+      // Disable all buttons after 5 minutes so they don't silently fail
+      const disabledRow = new ActionRowBuilder().addComponents(
+        CATEGORIES.map((cat) =>
+          new ButtonBuilder()
+            .setCustomId(`help_cat_${cat.id}`)
+            .setLabel(cat.label)
+            .setEmoji(cat.emoji)
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
+        )
+      );
+
+      await interaction.editReply({ components: [disabledRow] }).catch(() => {});
+    });
   },
 };
