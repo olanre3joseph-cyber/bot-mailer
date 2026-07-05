@@ -341,11 +341,89 @@ async function fetchAndFilterClientSide({ scoreMin, scoreMax, citiesMin, citiesM
   return results;
 }
 
+/**
+ * Looks up an alliance by name (case-insensitive) or numeric ID.
+ * Returns { id, name } or null if not found.
+ */
+async function getAlliance(input) {
+  const trimmed = String(input).trim();
+  const isId = /^\d+$/.test(trimmed);
+
+  const query = `
+    query GetAlliance($id: [Int], $name: [String]) {
+      alliances(${isId ? 'id: $id' : 'name: $name'}, first: 5) {
+        data {
+          id
+          name
+        }
+      }
+    }
+  `;
+
+  const variables = isId
+    ? { id: [Number(trimmed)] }
+    : { name: [trimmed] };
+
+  const data = await pnwRequest(query, variables);
+  const results = data.alliances.data;
+  if (results.length === 0) return null;
+
+  // Prefer exact case-insensitive name match if searching by name
+  if (!isId) {
+    const lower = trimmed.toLowerCase();
+    const exact = results.find((a) => a.name.toLowerCase() === lower);
+    return exact || results[0];
+  }
+
+  return results[0];
+}
+
+/**
+ * Fetches all member nations of an alliance by its numeric ID.
+ * Returns basic nation info needed for mailing and display.
+ * Paginates automatically so large alliances are fully covered.
+ */
+async function getAllianceMembers(allianceId) {
+  const query = `
+    query GetAllianceMembers($allianceId: [Int], $page: Int) {
+      nations(alliance_id: $allianceId, first: 100, page: $page,
+              orderBy: { column: SCORE, order: DESC }) {
+        paginatorInfo {
+          hasMorePages
+        }
+        data {
+          id
+          nation_name
+          leader_name
+          score
+          num_cities
+          last_active
+        }
+      }
+    }
+  `;
+
+  const members = [];
+  let page = 1;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    const data = await pnwRequest(query, { allianceId: [allianceId], page });
+    members.push(...data.nations.data);
+    hasMorePages = data.nations.paginatorInfo.hasMorePages;
+    page++;
+  }
+
+  return members;
+}
+
 module.exports = {
   pnwRequest,
   sendMail,
   getNation,
   getNationByName,
+  getAlliance,
+  getAllianceMembers,
   getRecentNations,
   getRecentUnalignedNations,
   getNationsPage,
