@@ -414,7 +414,7 @@ async function getAllianceMembers(allianceId) {
   let hasMorePages = true;
 
   while (hasMorePages) {
-    const data = await pnwRequest(query, { allianceId: [allianceId], page });
+    const data = await pnwRequest(query, { allianceId: [Number(allianceId)], page });
     members.push(...data.nations.data);
     hasMorePages = data.nations.paginatorInfo.hasMorePages;
     page++;
