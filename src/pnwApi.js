@@ -349,26 +349,32 @@ async function getAlliance(input) {
   const trimmed = String(input).trim();
   const isId = /^\d+$/.test(trimmed);
 
-  const query = `
-    query GetAlliance($id: [Int], $name: [String]) {
-      alliances(${isId ? 'id: $id' : 'name: $name'}, first: 5) {
-        data {
-          id
-          name
+  let data;
+
+  if (isId) {
+    const query = `
+      query GetAllianceById($id: [Int]) {
+        alliances(id: $id, first: 1) {
+          data { id name }
         }
       }
-    }
-  `;
+    `;
+    data = await pnwRequest(query, { id: [Number(trimmed)] });
+  } else {
+    const query = `
+      query GetAllianceByName($name: [String]) {
+        alliances(name: $name, first: 5) {
+          data { id name }
+        }
+      }
+    `;
+    data = await pnwRequest(query, { name: [trimmed] });
+  }
 
-  const variables = isId
-    ? { id: [Number(trimmed)] }
-    : { name: [trimmed] };
-
-  const data = await pnwRequest(query, variables);
   const results = data.alliances.data;
   if (results.length === 0) return null;
 
-  // Prefer exact case-insensitive name match if searching by name
+  // Prefer exact case-insensitive name match when searching by name
   if (!isId) {
     const lower = trimmed.toLowerCase();
     const exact = results.find((a) => a.name.toLowerCase() === lower);
