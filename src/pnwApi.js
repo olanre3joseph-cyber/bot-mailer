@@ -423,6 +423,77 @@ async function getAllianceMembers(allianceId) {
   return members;
 }
 
+// Alliance position integer values from PnW's confirmed schema:
+// NOALLIANCE=0, APPLICANT=1, MEMBER=2, OFFICER=3, HEIR=4, LEADER=5
+const ALLIANCE_POSITION = { NOALLIANCE: 0, APPLICANT: 1, MEMBER: 2, OFFICER: 3, HEIR: 4, LEADER: 5 };
+
+/**
+ * Fetches all current applicants of your alliance (alliance_position = APPLICANT = 1).
+ * Requires your API key - PnW only returns this data to alliance members.
+ */
+async function getMyApplicants(allianceId) {
+  const query = `
+    query GetApplicants($allianceId: [Int], $position: Int) {
+      nations(alliance_id: $allianceId, alliance_position: $position, first: 100) {
+        data {
+          id
+          nation_name
+          leader_name
+          score
+          num_cities
+          date
+        }
+      }
+    }
+  `;
+  const data = await pnwRequest(query, {
+    allianceId: [Number(allianceId)],
+    position: ALLIANCE_POSITION.APPLICANT,
+  });
+  return data.nations.data;
+}
+
+/**
+ * Fetches all nations in your alliance at member rank or above (position >= 2).
+ * Used by the demotion scanner to detect when someone drops to applicant.
+ */
+async function getMyMembers(allianceId) {
+  const query = `
+    query GetMembers($allianceId: [Int], $page: Int) {
+      nations(alliance_id: $allianceId, first: 100, page: $page,
+              orderBy: { column: SCORE, order: DESC }) {
+        paginatorInfo { hasMorePages }
+        data {
+          id
+          nation_name
+          leader_name
+          alliance_position
+          score
+          num_cities
+        }
+      }
+    }
+  `;
+  const members = [];
+  let page = 1;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    const data = await pnwRequest(query, { allianceId: [Number(allianceId)], page });
+    members.push(
+      ...data.nations.data.filter((n) => {
+        const pos = typeof n.alliance_position === 'string'
+          ? (ALLIANCE_POSITION[n.alliance_position] ?? 0)
+          : Number(n.alliance_position);
+        return pos >= ALLIANCE_POSITION.MEMBER;
+      })
+    );
+    hasMorePages = data.nations.paginatorInfo.hasMorePages;
+    page++;
+  }
+  return members;
+}
+
 module.exports = {
   pnwRequest,
   sendMail,
@@ -430,6 +501,8 @@ module.exports = {
   getNationByName,
   getAlliance,
   getAllianceMembers,
+  getMyApplicants,
+  getMyMembers,
   getRecentNations,
   getRecentUnalignedNations,
   getNationsPage,
