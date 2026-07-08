@@ -160,6 +160,68 @@ function setDepartureBackfillDone() {
   setSetting('departureBackfillDone', true);
 }
 
+// ---------- Applicant/demotion tracker ----------
+// Stores snapshots of who was a full member last time we checked,
+// and who was already known as an applicant, so we can detect:
+// 1. NEW applicants (weren't in the applicant list before)
+// 2. DEMOTED members (were full members, now appear as applicant)
+
+function getKnownApplicants() {
+  const data = loadData();
+  return data.knownApplicants || {};
+}
+
+function setKnownApplicants(applicantsMap) {
+  const data = loadData();
+  data.knownApplicants = applicantsMap;
+  saveData(data);
+}
+
+function getKnownMembers() {
+  const data = loadData();
+  return data.knownMembers || {};
+}
+
+function setKnownMembers(membersMap) {
+  const data = loadData();
+  data.knownMembers = membersMap;
+  saveData(data);
+}
+
+function isApplicantBackfillDone() {
+  return Boolean(getSetting('applicantBackfillDone'));
+}
+
+function setApplicantBackfillDone() {
+  setSetting('applicantBackfillDone', true);
+}
+
+// ---------- Configurable applicant/demotion messages ----------
+
+function setApplicantMessage(subject, body) {
+  setSetting('applicantMessageSubject', subject);
+  setSetting('applicantMessageBody', body);
+}
+
+function getApplicantMessage() {
+  return {
+    subject: getSetting('applicantMessageSubject') || null,
+    body: getSetting('applicantMessageBody') || null,
+  };
+}
+
+function setDemotionMessage(subject, body) {
+  setSetting('demotionMessageSubject', subject);
+  setSetting('demotionMessageBody', body);
+}
+
+function getDemotionMessage() {
+  return {
+    subject: getSetting('demotionMessageSubject') || null,
+    body: getSetting('demotionMessageBody') || null,
+  };
+}
+
 // ---------- Recruitment templates ----------
 // type can be: 'initial' (default - used for new-nation/bulk recruiting),
 // 'followup1' (sent ~3 days after first contact), 'followup2' (~7 days),
@@ -403,6 +465,16 @@ module.exports = {
   markDepartureKnown,
   isDepartureBackfillDone,
   setDepartureBackfillDone,
+  getKnownApplicants,
+  setKnownApplicants,
+  getKnownMembers,
+  setKnownMembers,
+  isApplicantBackfillDone,
+  setApplicantBackfillDone,
+  setApplicantMessage,
+  getApplicantMessage,
+  setDemotionMessage,
+  getDemotionMessage,
   addTemplate,
   getTemplate,
   getAllTemplates,
